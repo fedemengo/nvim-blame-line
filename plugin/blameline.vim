@@ -37,7 +37,7 @@ endfunction
 
 function! s:getAnnotation(bufN, lineN, gitdir)
     let l:git_parent = fnamemodify(a:gitdir, ':h')
-    let l:gitcommand = 'cd '.l:git_parent.'; git --git-dir='.a:gitdir.' --work-tree='.l:git_parent
+    let l:gitcommand = 'git -C '.l:git_parent.' --git-dir='.a:gitdir.' --work-tree='.l:git_parent
     let l:blame = systemlist(l:gitcommand.' annotate --contents - '.expand('%:p').' --porcelain -L '.a:lineN.','.a:lineN.' -M', a:bufN)
     if v:shell_error > 0
         let b:onCursorMoved = s:createError(l:blame)
@@ -76,7 +76,7 @@ endfunction
 
 function s:getCursorHandler()
     let b:ToggleBlameLine = function('s:EnableBlameLine')
-    let l:BlameLineGitdir = systemlist('cd '.expand('%:p:h').'; git rev-parse --git-dir')[-1]
+    let l:BlameLineGitdir = systemlist('git -C '.expand('%:p:h').' rev-parse --git-dir')[-1]
     if v:shell_error > 0
         return s:createError(l:BlameLineGitdir)
     endif
@@ -85,7 +85,7 @@ function s:getCursorHandler()
     endif
 
     let l:rel_to_git_parent = substitute(expand('%:p'), escape(fnamemodify(l:BlameLineGitdir, ':h').'/', '.'), '', '')
-    let l:fileExists = systemlist('cd ' . expand('%:p:h') . '; git cat-file -e HEAD:' . l:rel_to_git_parent)
+    let l:fileExists = systemlist('git -C ' .expand('%:p:h'). ' cat-file -e HEAD:' . l:rel_to_git_parent)
     if v:shell_error > 0
         return s:createError(l:fileExists)
     endif
