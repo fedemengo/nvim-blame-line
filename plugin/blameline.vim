@@ -14,8 +14,7 @@ function s:createError(error)
     return g:blameLineVerbose ? {-> s:vimEcho(a:error) && s:DisableBlameLine()} : {-> s:DisableBlameLine()}
 endfunction
 
-let s:blameLineNsId = g:blameLineUseVirtualText && has('nvim') && has('nvim-0.3.4') ?
-    \ nvim_create_namespace('nvim-blame-line') : 0
+let s:blameLineNsId = g:blameLineUseVirtualText && has('nvim') && has('nvim-0.3.4') ? nvim_create_namespace('nvim-blame-line') : 0
 
 function! s:nvimAnnotate(comment, bufN, lineN)
     call nvim_buf_clear_namespace(a:bufN, s:blameLineNsId, 0, -1)
@@ -45,7 +44,6 @@ function! s:getAnnotation(bufN, lineN, gitdir)
     let l:commit = strpart(l:blame[0], 0, 40)
     let l:format = g:blameLineGitFormat
     if l:commit ==# '0000000000000000000000000000000000000000'
-        " show nothing when this line is not yet committed.
         let l:annotation = [g:blameLineMessageWhenNotYetCommited]
     else
         let l:annotation = systemlist(l:gitcommand.' show '.l:commit.' --format="'.l:format.'"')
@@ -84,7 +82,18 @@ function s:getCursorHandler()
         let l:BlameLineGitdir = expand('%:p:h').'/'.l:BlameLineGitdir
     endif
 
-    let l:rel_to_git_parent = substitute(expand('%:p'), escape(fnamemodify(l:BlameLineGitdir, ':h').'/', '.'), '', '')
+    let l:path_to_worktree = l:BlameLineGitdir
+    if len(l:BlameLineGitdir) > 3 && l:BlameLineGitdir[-4:] == ".git"
+        let l:path_to_worktree = fnamemodify(l:BlameLineGitdir, ':h')
+    else
+        let l:path_to_worktree = substitute(l:BlameLineGitdir, '.git/worktrees/', '', '')
+    endif
+
+    "echo "WORKTREE: ".l:path_to_worktree
+    "echo "EXPANSNN: ".expand('%:p')
+    let l:rel_to_git_parent = substitute(expand('%:p'), l:path_to_worktree.'/', '', '')
+    "echo "SUBSITUT: ".l:rel_to_git_parent
+    "echo 'test command: git -C ' .expand('%:p:h'). ' cat-file -e HEAD:' . l:rel_to_git_parent
     let l:fileExists = systemlist('git -C ' .expand('%:p:h'). ' cat-file -e HEAD:' . l:rel_to_git_parent)
     if v:shell_error > 0
         return s:createError(l:fileExists)
