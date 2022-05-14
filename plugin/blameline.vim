@@ -35,9 +35,13 @@ function! s:clearAll()
 endfunction
 
 function! s:getAnnotation(bufN, lineN, gitdir)
-    let l:git_parent = fnamemodify(a:gitdir, ':h')
-    let l:gitcommand = 'git -C '.l:git_parent.' --git-dir='.a:gitdir.' --work-tree='.l:git_parent
-    let l:blame = systemlist(l:gitcommand.' annotate --contents - '.expand('%:p').' --porcelain -L '.a:lineN.','.a:lineN.' -M', a:bufN)
+    let l:clean_dir = substitute(a:gitdir, ".git/worktrees/", "", "")
+    if len(l:clean_dir) > 3 && l:clean_dir[-4:] == ".git"
+        let l:clean_dir = fnamemodify(l:BlameLineGitdir, ':h')
+    endif
+    let l:gitcommand = 'git -C '.l:clean_dir
+    let l:clean_file_path = substitute(expand('%:p'), ".git/worktrees/", "", "")
+    let l:blame = systemlist(l:gitcommand.' annotate '.l:clean_file_path.' --porcelain -L '.a:lineN.','.a:lineN.' -M'.a:bufN)
     if v:shell_error > 0
         let b:onCursorMoved = s:createError(l:blame)
     endif
@@ -89,11 +93,7 @@ function s:getCursorHandler()
         let l:path_to_worktree = substitute(l:BlameLineGitdir, '.git/worktrees/', '', '')
     endif
 
-    "echo "WORKTREE: ".l:path_to_worktree
-    "echo "EXPANSNN: ".expand('%:p')
     let l:rel_to_git_parent = substitute(expand('%:p'), l:path_to_worktree.'/', '', '')
-    "echo "SUBSITUT: ".l:rel_to_git_parent
-    "echo 'test command: git -C ' .expand('%:p:h'). ' cat-file -e HEAD:' . l:rel_to_git_parent
     let l:fileExists = systemlist('git -C ' .expand('%:p:h'). ' cat-file -e HEAD:' . l:rel_to_git_parent)
     if v:shell_error > 0
         return s:createError(l:fileExists)
@@ -141,3 +141,5 @@ command! ToggleBlameLine :call b:ToggleBlameLine()
 command! EnableBlameLine :call s:EnableBlameLine()
 command! DisableBlameLine :call s:DisableBlameLine()
 command! SingleBlameLine :call s:SingleBlameLine()
+
+
