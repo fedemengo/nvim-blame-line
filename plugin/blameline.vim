@@ -36,15 +36,27 @@ function! s:clearAll()
 endfunction
 
 function! s:getAnnotation(bufN, lineN, gitdir)
-    let l:clean_file_path = substitute(expand('%:p'), '.git/worktrees/', '', '')
-    let l:clean_dir = substitute(a:gitdir, '.git/worktrees/', '', '')
-    if len(l:clean_dir) > 3 && l:clean_dir[-4:] == '.git'
-        let l:clean_dir = fnamemodify(l:clean_dir, ':h')
+    let l:file_path = expand('%:p')
+    let l:clean_file_path = substitute(l:file_path, '.git/worktrees/', '', '')
+
+    let l:git_dir = systemlist('git -C '.fnamemodify(l:file_path, ':h').' rev-parse --git-dir')[-1]
+    if v:shell_error > 0
+        return s:createError(l:git_dir)
+    endif
+    if l:git_dir[0] !=# '/'
+        let l:git_dir = expand('%:p:h').'/'.l:git_dir
     endif
 
-    let l:gitcommand = 'git -C '.l:clean_dir
-    let l:blame = systemlist(l:gitcommand.' annotate '.l:clean_file_path.' --porcelain -L '.a:lineN.','.a:lineN.' -M'.a:bufN)
+    let l:git_dir = substitute(l:git_dir, '.git/worktrees/', '', '')
+    if len(l:git_dir) > 3 && l:git_dir[-4:] == '.git'
+        let l:git_dir = fnamemodify(l:git_dir, ':h')
+    endif
+
+    let l:gitcommand = 'git -C '.l:git_dir
+    let l:blame_command = l:gitcommand.' annotate '.l:clean_file_path.' --porcelain -L '.a:lineN.','.a:lineN.' -M'.a:bufN
+    let l:blame = systemlist(l:blame_command)
     if v:shell_error > 0
+        echo "blame command: ".l:blame_command." and git_dir: ".l:git_dir
         let b:onCursorMoved = s:createError(l:blame)
     endif
     let l:commit = strpart(l:blame[0], 0, 40)
@@ -70,7 +82,7 @@ function! s:createCursorHandler(bufN, gitdir, anno)
         let l:cursorTimer = 0
         function! s:debouncedHandler(buf, lineN) closure
             call timer_stop(l:cursorTimer)
-            let l:cursorTimer = timer_start(70, {-> s:handler(a:buf, a:lineN)})
+            let l:cursorTimer = timer_start(50, {-> s:handler(a:buf, a:lineN)})
         endfunction
         return function('s:debouncedHandler', [a:bufN])
     else
@@ -94,11 +106,13 @@ function s:getCursorHandler()
     endif
 
     let l:rel_to_git_parent = substitute(expand('%:p'), l:clean_dir.'/', '', '')
-    let l:fileExists = systemlist('git -C ' .expand('%:p:h'). ' cat-file -e HEAD:' . l:rel_to_git_parent)
+    let l:file_exists_command = 'git -C ' .expand('%:p:h'). ' cat-file -e HEAD:' . l:rel_to_git_parent
+    let l:fileExists = systemlist(l:file_exists_command)
     if v:shell_error > 0
+        echo "file exists command: ".l:file_exists_command
         return s:createError(l:fileExists)
     endif
-    return s:createCursorHandler(bufnr('%'), l:BlameLineGitdir, s:blameLineNsId ? funcref('s:nvimAnnotate') : funcref('s:vimEcho'))
+    return s:createCursorHandler(bufnr('%'), l:clean_dir, s:blameLineNsId ? funcref('s:nvimAnnotate') : funcref('s:vimEcho'))
 endfunction
 
 function! s:InitBlameLine()
