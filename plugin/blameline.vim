@@ -35,14 +35,12 @@ function! s:clearAll()
     endif
 endfunction
 
-function! s:getAnnotation(bufN, lineN, gitdir)
-    let l:file_path = expand('%:p')
-    let l:clean_file_path = substitute(l:file_path, '.git/worktrees/', '', '')
-
-    let l:git_dir = systemlist('git -C '.fnamemodify(l:file_path, ':h').' rev-parse --git-dir')[-1]
+function! s:getGitDir(filePath)
+    let l:git_dir = systemlist('git -C '.fnamemodify(a:filePath, ':h').' rev-parse --git-dir')[-1]
     if v:shell_error > 0
         return s:createError(l:git_dir)
     endif
+
     if l:git_dir[0] !=# '/'
         let l:git_dir = expand('%:p:h').'/'.l:git_dir
     endif
@@ -52,13 +50,21 @@ function! s:getAnnotation(bufN, lineN, gitdir)
         let l:git_dir = fnamemodify(l:git_dir, ':h')
     endif
 
+    return git_dir
+endfunction
+
+function! s:getAnnotation(bufN, lineN, gitdir)
+    let l:file_path = expand('%:p')
+    let l:git_dir = a:gitdir
     let l:gitcommand = 'git -C '.l:git_dir
+    let l:clean_file_path = substitute(l:file_path, '.git/worktrees/', '', '')
     let l:blame_command = l:gitcommand.' annotate '.l:clean_file_path.' --porcelain -L '.a:lineN.','.a:lineN.' -M'.a:bufN
     let l:blame = systemlist(l:blame_command)
     if v:shell_error > 0
-        echo "blame command: ".l:blame_command." and git_dir: ".l:git_dir
+        echo "blame command: ".l:blame_command
         let b:onCursorMoved = s:createError(l:blame)
     endif
+
     let l:commit = strpart(l:blame[0], 0, 40)
     let l:format = g:blameLineGitFormat
     if l:commit ==# '0000000000000000000000000000000000000000'
@@ -66,9 +72,11 @@ function! s:getAnnotation(bufN, lineN, gitdir)
     else
         let l:annotation = systemlist(l:gitcommand.' show '.l:commit.' --format="'.l:format.'"')
     endif
+
     if v:shell_error > 0
         let b:onCursorMoved = s:createError(l:annotation)
     endif
+
     return printf(g:blameLineVirtualTextFormat, l:annotation[0])
 endfunction
 
@@ -92,27 +100,18 @@ endfunction
 
 function s:getCursorHandler()
     let b:ToggleBlameLine = function('s:EnableBlameLine')
-    let l:BlameLineGitdir = systemlist('git -C '.expand('%:p:h').' rev-parse --git-dir')[-1]
-    if v:shell_error > 0
-        return s:createError(l:BlameLineGitdir)
-    endif
-    if l:BlameLineGitdir[0] !=# '/'
-        let l:BlameLineGitdir = expand('%:p:h').'/'.l:BlameLineGitdir
-    endif
-
-    let l:clean_dir = substitute(l:BlameLineGitdir, '.git/worktrees/', '', '')
-    if len(l:clean_dir) > 3 && l:clean_dir[-4:] == '.git'
-        let l:clean_dir = fnamemodify(l:clean_dir, ':h')
-    endif
-
-    let l:rel_to_git_parent = substitute(expand('%:p'), l:clean_dir.'/', '', '')
-    let l:file_exists_command = 'git -C ' .expand('%:p:h'). ' cat-file -e HEAD:' . l:rel_to_git_parent
-    let l:fileExists = systemlist(l:file_exists_command)
+    let l:file_path = expand('%:p')
+    let l:git_dir = s:getGitDir(l:file_path)
+    let l:rel_to_git_parent = substitute(l:file_path, l:git_dir.'/', '', '')
+    let l:git_command = 'git -C '.fnamemodify(l:file_path, ':h')
+    let l:file_exists_command = l:git_command.' cat-file -e HEAD:'.l:rel_to_git_parent
+    let l:file_exists = systemlist(l:file_exists_command)
     if v:shell_error > 0
         echo "file exists command: ".l:file_exists_command
-        return s:createError(l:fileExists)
+        return s:createError(l:file_exists)
     endif
-    return s:createCursorHandler(bufnr('%'), l:clean_dir, s:blameLineNsId ? funcref('s:nvimAnnotate') : funcref('s:vimEcho'))
+
+    return s:createCursorHandler(bufnr('%'), l:git_dir, s:blameLineNsId ? funcref('s:nvimAnnotate') : funcref('s:vimEcho'))
 endfunction
 
 function! s:InitBlameLine()
