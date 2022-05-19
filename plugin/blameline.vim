@@ -102,6 +102,11 @@ endfunction
 function s:getCursorHandler()
     let b:ToggleBlameLine = function('s:EnableBlameLine')
     let l:file_path = expand('%:p')
+    let l:git_root = systemlist('git -C '.fnamemodify(l:file_path, ':h').' rev-parse --git-dir')[-1]
+    if v:shell_error > 0
+        return s:createError("file does not belong to a git repo")
+    endif
+
     let l:git_dir = s:getGitDir(l:file_path)
     let l:rel_to_git_parent = substitute(l:file_path, l:git_dir.'/', '', '')
     let l:git_command = 'git -C '.fnamemodify(l:file_path, ':h')
