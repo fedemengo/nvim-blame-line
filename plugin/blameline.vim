@@ -46,6 +46,7 @@ function! s:getGitDir(filePath)
     endif
 
     let l:git_dir = substitute(l:git_dir, '/.git/worktrees/', '/', '')
+    let l:git_dir = substitute(l:git_dir, '/.git/modules/', '/', '')
     let l:git_dir = substitute(l:git_dir, '/worktrees/', '/', '')
     if len(l:git_dir) > 3 && l:git_dir[-4:] == '.git'
         let l:git_dir = fnamemodify(l:git_dir, ':h')
