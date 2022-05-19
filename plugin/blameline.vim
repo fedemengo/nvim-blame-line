@@ -114,7 +114,7 @@ function s:getCursorHandler()
     let l:file_exists_command = l:git_command.' cat-file -e HEAD:'.l:rel_to_git_parent
     let l:file_exists = systemlist(l:file_exists_command)
     if v:shell_error > 0
-        echo "file exists command: ".l:file_exists_command
+        echo "file exists command: ".l:file_exists_command ." - git dir: ".l:git_dir
         return s:createError(l:file_exists)
     endif
 
