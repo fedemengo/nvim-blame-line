@@ -45,7 +45,8 @@ function! s:getGitDir(filePath)
         let l:git_dir = expand('%:p:h').'/'.l:git_dir
     endif
 
-    let l:git_dir = substitute(l:git_dir, '.git/worktrees/', '', '')
+    let l:git_dir = substitute(l:git_dir, '/.git/worktrees/', '/', '')
+    let l:git_dir = substitute(l:git_dir, '/worktrees/', '/', '')
     if len(l:git_dir) > 3 && l:git_dir[-4:] == '.git'
         let l:git_dir = fnamemodify(l:git_dir, ':h')
     endif
@@ -90,7 +91,7 @@ function! s:createCursorHandler(bufN, gitdir, anno)
         let l:cursorTimer = 0
         function! s:debouncedHandler(buf, lineN) closure
             call timer_stop(l:cursorTimer)
-            let l:cursorTimer = timer_start(50, {-> s:handler(a:buf, a:lineN)})
+            let l:cursorTimer = timer_start(200, {-> s:handler(a:buf, a:lineN)})
         endfunction
         return function('s:debouncedHandler', [a:bufN])
     else
